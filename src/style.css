@@ -32,9 +32,11 @@ body.busy .drop{opacity:.6;pointer-events:none}
 .head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
 .head h2{margin:0;font-size:16px;overflow-wrap:anywhere}
 .key{color:var(--muted);font-size:13px}
-.now-box{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0}
+.now-box{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0}
 .now-label{font-size:12px;letter-spacing:.12em;color:var(--muted)}
-.now{font-size:clamp(56px,16vw,104px);font-weight:700;line-height:1.1;letter-spacing:.01em;min-height:1.1em}
+/* long names (B♭Maj9(♯11)/D) shrink to fit one line: --len is the name's length, set by main.ts */
+.now-box{container-type:inline-size}
+.now{--len:5;font-size:min(104px,22cqi,calc(100cqi / (var(--len) * .62)));font-weight:700;line-height:1.1;letter-spacing:.01em;min-height:1.1em;white-space:nowrap}
 .bar{width:min(320px,80%);height:4px;border-radius:2px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:var(--accent)}
 .next-line{color:var(--muted);font-size:15px}
@@ -55,3 +57,10 @@ h3 small{letter-spacing:0;margin-left:6px;font-weight:400}
 .chip.now small{color:var(--fg)}
 .note{margin:0;color:var(--muted);font-size:12px}
 .acc{display:inline-block;margin:0 .02em 0 -.04em;font-size:.85em;letter-spacing:0}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:3px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.modes button{display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:inherit;cursor:pointer}
+.modes button b{font-size:15px;color:inherit}
+.modes button small{font-size:11px}
+.modes button:hover{color:var(--fg)}
+.modes button[aria-pressed=true]{background:var(--accent-deep);color:var(--fg)}
+.modes button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}

@@ -3,24 +3,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { keySpectrum, LISTEN_HOP } from "../src/listen.ts";
 import { chordLabel, detectChords, keyLabel, type Segment } from "../src/chords.ts";
+import { playChords, SYNTH_SR } from "../scripts/synth.ts";
 
-const SR = 22050;
-// chords: [[midi...], seconds] played one after another
-function play(chords: [number[], number][], tail = 0.5) {
-  const len = chords.reduce((s, [, d]) => s + d, 0) + tail, x = new Float32Array(Math.round(SR * len));
-  let t0 = 0;
-  for (const [notes, d] of chords) {
-    for (const m of notes) {
-      const f = 440 * 2 ** ((m - 69) / 12);
-      for (let i = Math.round(t0 * SR); i < Math.round((t0 + d) * SR); i++) {
-        const t = i / SR - t0, env = Math.min(1, t * 50) * Math.exp(-t * 0.8);
-        for (let h = 1; h <= 4; h++) x[i] += 0.08 * env * 0.5 ** (h - 1) * Math.sin(2 * Math.PI * f * h * t);
-      }
-    }
-    t0 += d;
-  }
-  return x;
-}
+const SR = SYNTH_SR, play = (chords: [number[], number][]) => playChords(chords, SR);
 const detect = (x: Float32Array) => detectChords(keySpectrum(x, SR), LISTEN_HOP);
 const name = (r: ReturnType<typeof detect>, t: number) => {
   const s = r.segs.find((s: Segment) => s.t <= t && t < s.end);
