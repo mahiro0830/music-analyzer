@@ -27,7 +27,8 @@ export type AdvSegment = Segment & { full: FullChord | null };
 const HARM_STEPS = [12, 19, 24, 28];
 const IV: Record<Quality, number[]> = { maj: [0, 4, 7], min: [0, 3, 7], "7": [0, 4, 10], maj7: [0, 4, 11], min7: [0, 3, 10], m7b5: [0, 3, 6, 10], sus4: [0, 5, 7] };
 const BASIC: Record<Quality, FullChord["q"]> = { maj: "maj", min: "min", "7": "7", maj7: "maj7", min7: "min7", m7b5: "m7b5", sus4: "sus4" };
-const basicFull = (s: Segment): FullChord | null =>
+/** a basic chord in the 応用 form, without tensions */
+export const basicFull = (s: Segment): FullChord | null =>
   s.q ? { root: s.root, q: BASIC[s.q], T: [], bass: s.root, triad: ["maj", "min", "sus4"].includes(s.q) } : null;
 
 /** how loud each key is over frames f0..f1-1, with the harmonics of lower keys taken away */

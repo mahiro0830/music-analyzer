@@ -3,6 +3,8 @@ import "./style.css";
 import { chordLabel, keyLabel, namesFor, type Key } from "./chords.ts";
 import type { AdvSegment } from "./advanced.ts";
 import { fullChordName } from "./theory.ts";
+import { basicFull } from "./advanced.ts";
+import { chordsToMidi } from "./midi.ts";
 import type { AnalysisReply, AnalysisRequest, AnalysisResult } from "./worker.ts";
 
 // elements of index.html, by id and type
@@ -14,8 +16,8 @@ function $<T extends HTMLElement = HTMLElement>(id: string): T {
 const audio = $<HTMLAudioElement>("audio");
 const list = $("list");
 type Mode = "basic" | "advanced";
-const S: { segs: AdvSegment[]; key: Key | null; url: string | null; cur: number; busy: boolean; mode: Mode } =
-  { segs: [], key: null, url: null, cur: -1, busy: false, mode: "basic" };
+const S: { segs: AdvSegment[]; key: Key | null; url: string | null; name: string; cur: number; busy: boolean; mode: Mode } =
+  { segs: [], key: null, url: null, name: "", cur: -1, busy: false, mode: "basic" };
 try { if (localStorage.getItem("mode") === "advanced") S.mode = "advanced"; } catch { /* storage blocked: start with 基本 */ }
 const ANALYSIS_SR = 22050;
 const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
@@ -59,7 +61,7 @@ async function load(blob: Blob, fileName: string) {
     S.segs = r.segs; S.key = r.key; S.cur = -1;
     if (S.url) URL.revokeObjectURL(S.url);
     S.url = URL.createObjectURL(blob); audio.src = S.url;
-    $("title").textContent = fileName;
+    $("title").textContent = fileName; S.name = fileName;
     $("key").textContent = `キー：${pretty(keyLabel(r.key))}（推定）`;
     renderList();
     $("player").hidden = false;
@@ -138,4 +140,20 @@ document.addEventListener("drop", e => { const f = e.dataTransfer?.files[0]; if 
 document.addEventListener("keydown", e => {
   const tag = (e.target as HTMLElement).tagName;
   if (e.code === "Space" && !/INPUT|SELECT|BUTTON|AUDIO/.test(tag) && audio.src) { e.preventDefault(); if (audio.paused) audio.play(); else audio.pause(); }
+});
+
+// MIDI: the chords as shown now (基本 or 応用), as block chords with a bass line and the names as markers
+$("midi").addEventListener("click", () => {
+  if (!S.segs.length) return;
+  const chords = S.segs.map(s => ({
+    t: s.t, end: s.end, name: label(s),
+    chord: S.mode === "advanced" && s.full ? s.full : basicFull(s),
+  }));
+  const base = S.name.replace(/\.[^.]+$/, "") || "chords";
+  const data = chordsToMidi(chords, { title: base, key: S.key });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], { type: "audio/midi" }));
+  a.download = `${base}-${S.mode === "advanced" ? "応用" : "基本"}.mid`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });

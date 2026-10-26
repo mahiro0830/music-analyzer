@@ -118,3 +118,15 @@ export function fullChordName(c: FullChord, names: string[]): string {
   } else body = q + (T.length ? "(" + T.join(",") + ")" : "");
   return names[c.root] + body + (c.bass !== c.root ? "/" + names[c.bass] : "");
 }
+
+/* ============ Notes of a chord ============ (not in Chord Roll: used to write chords out as MIDI) */
+const TENSION_IV: Record<Tension, number> = { b9: 13, "9": 14, "#9": 15, "11": 17, "#11": 18, b5: 6, "#5": 8, b13: 20, "13": 21 };
+/** the chord's notes as intervals above its root, chord tones first, then tensions an octave up (9 = 14).
+    A perfect 5th the quality leaves optional is put back unless an altered 5th (b5 / #5) takes its place. */
+export function chordIntervals(c: FullChord): number[] {
+  const q = QUAL.find(q => q.id === c.q)!;
+  const iv = [...q.core];
+  if (q.fifth && !c.T.some(t => t === "b5" || t === "#5")) iv.push(7);
+  for (const t of c.T) iv.push(TENSION_IV[t]);
+  return [...new Set(iv)].sort((a, b) => a - b);
+}
