@@ -11,7 +11,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm run check
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
       - run: npm test
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: npm run eval

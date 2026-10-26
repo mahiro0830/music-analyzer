@@ -14,7 +14,7 @@
 
 ## しくみ
 
-1. 音声を 20ms ごとに、ピアノ 88 鍵それぞれの音の強さに変える（`js/listen.js`、Chord Roll から流用）
+1. 音声を 20ms ごとに、ピアノ 88 鍵それぞれの音の強さに変える（`src/listen.ts`、Chord Roll から流用）
 2. 12 音の強さ（クロマ）と、低音域だけの強さ（ベース）にまとめる
 3. 各コードの型（構成音と、その倍音）と照合し、ベースが根音に合うコードを優先する
 4. コードが切り替わるたびにコストを払う形で、曲全体でいちばん自然なコードの並びを選ぶ（Viterbi）。0.4 秒未満の短いコードは前のコードにまとめる
@@ -23,7 +23,7 @@
 
 ## 精度（デモ曲）
 
-`npm run eval` で、デモ曲（`demo/demo.mp3`）を元の MIDI から出したコード（`demo/demo.truth.json`）と 20ms ごとに比べます。
+`npm run eval` で、デモ曲（`public/demo/demo.mp3`）を元の MIDI から出したコード（`public/demo/demo.truth.json`）と 20ms ごとに比べます。
 
 | 条件 | 根音 | メジャー/マイナー | 7th まで |
 | --- | --- | --- | --- |
@@ -32,27 +32,32 @@
 | ピンクノイズ（5dB 小さい） | 91.9% | 77.7% | 69.6% |
 | ドラム（音楽と同じ音量） | 91.5% | 83.3% | 72.5% |
 
-デモ曲はピアノだけの曲です。ボーカル・ベース・ギターなどが入った曲では下がるはずなので、手持ちの曲での確認が次の課題です。正解のコードがある曲なら `node scripts/eval.mjs 曲.mp3 正解.json` で同じように測れます（正解の形式は `demo/demo.truth.json` を参照）。
+デモ曲はピアノだけの曲です。ボーカル・ベース・ギターなどが入った曲では下がるはずなので、手持ちの曲での確認が次の課題です。正解のコードがある曲なら `node scripts/eval.ts 曲.mp3 正解.json` で同じように測れます（正解の形式は `public/demo/demo.truth.json` を参照）。
 
 ## 開発
 
-ビルドは不要です。静的ファイルをそのまま配信します。
+TypeScript と Vite で書いています。Node.js 22.18 以上が必要です（テストと測定スクリプトは、Node が TypeScript をそのまま実行します）。
 
 ```sh
+npm install
 npm run dev     # http://localhost:5173
+npm run check   # 型チェック
 npm test        # 合成した和音でのコード判定テスト
 npm run eval    # デモ曲での正解率（ffmpeg が必要）。noise=pink:10 などでノイズを混ぜられます
-npm run check   # 構文チェック
+npm run build   # 型チェックして dist/ に書き出し（npm run preview で確認）
 ```
+
+公開するときは、ビルドコマンドを `npm run build`、公開するフォルダを `dist` にします（Cloudflare など）。
 
 ## 構成
 
 | パス | 内容 |
 | --- | --- |
-| `index.html`、`css/app.css` | 画面 |
-| `js/app.js` | 読み込み、再生、表示 |
-| `js/worker.js` | 解析を別スレッドで動かす |
-| `js/listen.js` | 音声 → 88 鍵の強さ（DOM に依存しない） |
-| `js/chords.js` | 88 鍵の強さ → コードとキー、コード名（DOM に依存しない） |
-| `scripts/eval.mjs` | 正解率の測定 |
-| `demo/` | デモ曲と、その正解のコード |
+| `index.html`、`src/style.css` | 画面 |
+| `src/main.ts` | 読み込み、再生、表示 |
+| `src/worker.ts` | 解析を別スレッドで動かす（やりとりの型もここ） |
+| `src/listen.ts` | 音声 → 88 鍵の強さ（DOM に依存しない） |
+| `src/chords.ts` | 88 鍵の強さ → コードとキー、コード名（DOM に依存しない） |
+| `tests/` | テスト |
+| `scripts/eval.ts` | 正解率の測定 |
+| `public/demo/` | デモ曲と、その正解のコード（そのまま公開されます） |

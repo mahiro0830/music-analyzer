@@ -5,9 +5,19 @@
   "description": "音声ファイルのコードを再生に合わせて表示するWebアプリ（試作）",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/serve.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "eval": "node scripts/eval.mjs",
-    "check": "node --check js/listen.js && node --check js/chords.js && node --check js/app.js && node --check js/worker.js"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc",
+    "test": "node --test tests/*.test.ts",
+    "eval": "node scripts/eval.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }
