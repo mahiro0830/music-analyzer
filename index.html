@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>音楽分析</title>
-<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <main class="app">
@@ -27,6 +26,10 @@
       <h2 id="title"></h2>
       <span id="key" class="key"></span>
     </div>
+    <div class="modes" role="group" aria-label="コードの判定">
+      <button type="button" data-mode="basic" aria-pressed="true"><b>基本</b><small>メジャー・マイナー・7th</small></button>
+      <button type="button" data-mode="advanced" aria-pressed="false"><b>応用</b><small>テンション・分数コードも</small></button>
+    </div>
     <div class="now-box">
       <div class="now-label">いま</div>
       <div id="now" class="now">—</div>
@@ -45,10 +48,9 @@
     </div>
     <h3>コード進行 <small>押すとそこから再生</small></h3>
     <div id="list" class="list"></div>
-    <p class="note">耳コピの手がかりとしての推定です。判定できるのはメジャー・マイナー・7th・Maj7・min7・min7♭5・sus4 です（テンションや分数コードはまだ出ません）。</p>
+    <p class="note">耳コピの手がかりとしての推定です。「基本」はメジャー・マイナー・7th・Maj7・min7・min7♭5・sus4 を出します。「応用」は同じ区切りのまま、テンション（9・11・13 など）と分数コードまで推定します。細かいぶん、外れることも多くなります。</p>
   </section>
 </main>
-<script src="js/chords.js"></script>
-<script src="js/app.js"></script>
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>
