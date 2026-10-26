@@ -1,0 +1,52 @@
+// Chords from audio (js/chords.js) on synthetic tones with harmonics, like an instrument rather than pure sines
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadAnalyzer } from "../scripts/load.mjs";
+
+const A = loadAnalyzer(), SR = 22050;
+// chords: [[midi...], seconds] played one after another
+function play(chords, tail = 0.5) {
+  const len = chords.reduce((s, [, d]) => s + d, 0) + tail, x = new Float32Array(Math.round(SR * len));
+  let t0 = 0;
+  for (const [notes, d] of chords) {
+    for (const m of notes) {
+      const f = 440 * 2 ** ((m - 69) / 12);
+      for (let i = Math.round(t0 * SR); i < Math.round((t0 + d) * SR); i++) {
+        const t = i / SR - t0, env = Math.min(1, t * 50) * Math.exp(-t * 0.8);
+        for (let h = 1; h <= 4; h++) x[i] += 0.08 * env * 0.5 ** (h - 1) * Math.sin(2 * Math.PI * f * h * t);
+      }
+    }
+    t0 += d;
+  }
+  return x;
+}
+const detect = x => A.detectChords(A.keySpectrum(x, SR), A.LISTEN_HOP);
+const at = (segs, t) => segs.find(s => s.t <= t && t < s.end);
+const name = (r, t) => { const s = at(r.segs, t); return s ? A.chordLabel(s, r.key) : null; };
+
+test("C - Amin - F - G7 with the bass in the left hand", () => {
+  const r = detect(play([[[36, 60, 64, 67], 2], [[45, 60, 64, 69], 2], [[41, 60, 65, 69], 2], [[43, 59, 62, 65, 67], 2]]));
+  assert.deepEqual([1, 3, 5, 7].map(t => name(r, t)), ["C", "Amin", "F", "G7"]);
+  assert.equal(A.keyLabel(r.key), "C Major");
+});
+
+test("sevenths: Dmin7 - G7 - CMaj7", () => {
+  const r = detect(play([[[38, 60, 65, 69], 2], [[43, 59, 62, 65], 2], [[36, 59, 64, 67], 2]]));
+  assert.deepEqual([1, 3, 5].map(t => name(r, t)), ["Dmin7", "G7", "CMaj7"]);
+});
+
+test("a flat key is spelled with flats", () => {
+  const r = detect(play([[[39, 63, 67, 70], 2], [[44, 63, 68, 72], 2], [[46, 62, 65, 70], 2], [[39, 63, 67, 70], 2]]));
+  assert.deepEqual([1, 3, 5].map(t => name(r, t)), ["Eb", "Ab", "Bb"]);
+});
+
+test("chord changes land near where they are played", () => {
+  const r = detect(play([[[36, 60, 64, 67], 2], [[41, 60, 65, 69], 2]]));
+  const f = r.segs.find(s => A.chordLabel(s, r.key) === "F");
+  assert.ok(f && Math.abs(f.t - 2) < 0.25, JSON.stringify(r.segs));
+});
+
+test("silence is no chord", () => {
+  const r = detect(new Float32Array(SR * 2));
+  assert.ok(r.segs.every(s => s.root === -1), JSON.stringify(r.segs));
+});
