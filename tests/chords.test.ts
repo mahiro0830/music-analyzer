@@ -1,11 +1,12 @@
-// Chords from audio (js/chords.js) on synthetic tones with harmonics, like an instrument rather than pure sines
+// Chords from audio (src/chords.ts) on synthetic tones with harmonics, like an instrument rather than pure sines
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadAnalyzer } from "../scripts/load.mjs";
+import { keySpectrum, LISTEN_HOP } from "../src/listen.ts";
+import { chordLabel, detectChords, keyLabel, type Segment } from "../src/chords.ts";
 
-const A = loadAnalyzer(), SR = 22050;
+const SR = 22050;
 // chords: [[midi...], seconds] played one after another
-function play(chords, tail = 0.5) {
+function play(chords: [number[], number][], tail = 0.5) {
   const len = chords.reduce((s, [, d]) => s + d, 0) + tail, x = new Float32Array(Math.round(SR * len));
   let t0 = 0;
   for (const [notes, d] of chords) {
@@ -20,14 +21,16 @@ function play(chords, tail = 0.5) {
   }
   return x;
 }
-const detect = x => A.detectChords(A.keySpectrum(x, SR), A.LISTEN_HOP);
-const at = (segs, t) => segs.find(s => s.t <= t && t < s.end);
-const name = (r, t) => { const s = at(r.segs, t); return s ? A.chordLabel(s, r.key) : null; };
+const detect = (x: Float32Array) => detectChords(keySpectrum(x, SR), LISTEN_HOP);
+const name = (r: ReturnType<typeof detect>, t: number) => {
+  const s = r.segs.find((s: Segment) => s.t <= t && t < s.end);
+  return s ? chordLabel(s, r.key) : null;
+};
 
 test("C - Amin - F - G7 with the bass in the left hand", () => {
   const r = detect(play([[[36, 60, 64, 67], 2], [[45, 60, 64, 69], 2], [[41, 60, 65, 69], 2], [[43, 59, 62, 65, 67], 2]]));
   assert.deepEqual([1, 3, 5, 7].map(t => name(r, t)), ["C", "Amin", "F", "G7"]);
-  assert.equal(A.keyLabel(r.key), "C Major");
+  assert.equal(keyLabel(r.key), "C Major");
 });
 
 test("sevenths: Dmin7 - G7 - CMaj7", () => {
@@ -42,7 +45,7 @@ test("a flat key is spelled with flats", () => {
 
 test("chord changes land near where they are played", () => {
   const r = detect(play([[[36, 60, 64, 67], 2], [[41, 60, 65, 69], 2]]));
-  const f = r.segs.find(s => A.chordLabel(s, r.key) === "F");
+  const f = r.segs.find(s => chordLabel(s, r.key) === "F");
   assert.ok(f && Math.abs(f.t - 2) < 0.25, JSON.stringify(r.segs));
 });
 
