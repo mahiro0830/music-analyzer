@@ -119,7 +119,7 @@ const PC_NAMES={
   mixed:["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"]
 };
 // flats in the keys of F Bb Eb Ab Db Gb (and their relative minors), sharps in G D A E B, the readable mix in C / Am
-function namesFor(key:Key|null):string[]{
+export function namesFor(key:Key|null):string[]{
   if(!key)return PC_NAMES.mixed;
   const maj=key.minor?(key.tonic+3)%12:key.tonic;
   return maj===0?PC_NAMES.mixed:[5,10,3,8,1,6].includes(maj)?PC_NAMES.flat:PC_NAMES.sharp;

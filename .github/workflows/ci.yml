@@ -17,3 +17,4 @@ jobs:
       - run: npm test
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: npm run eval
+      - run: npm run eval -- tests/pop.truth.json

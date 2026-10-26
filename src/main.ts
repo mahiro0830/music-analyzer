@@ -1,6 +1,8 @@
 /* The page: load an audio file, analyse it in worker.ts, then show the chord under the playhead as it plays */
 import "./style.css";
-import { chordLabel, keyLabel, type Key, type Segment } from "./chords.ts";
+import { chordLabel, keyLabel, namesFor, type Key } from "./chords.ts";
+import type { AdvSegment } from "./advanced.ts";
+import { fullChordName } from "./theory.ts";
 import type { AnalysisReply, AnalysisRequest, AnalysisResult } from "./worker.ts";
 
 // elements of index.html, by id and type
@@ -11,12 +13,15 @@ function $<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 const audio = $<HTMLAudioElement>("audio");
 const list = $("list");
-const S: { segs: Segment[]; key: Key | null; url: string | null; cur: number; busy: boolean } =
-  { segs: [], key: null, url: null, cur: -1, busy: false };
+type Mode = "basic" | "advanced";
+const S: { segs: AdvSegment[]; key: Key | null; url: string | null; cur: number; busy: boolean; mode: Mode } =
+  { segs: [], key: null, url: null, cur: -1, busy: false, mode: "basic" };
+try { if (localStorage.getItem("mode") === "advanced") S.mode = "advanced"; } catch { /* storage blocked: start with 基本 */ }
+const ANALYSIS_SR = 22050;
 const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
 
-// "Bbmin7b5" -> B♭min7♭5, the signs in a span so CSS can tighten them
-const pretty = (s: string) => s.replace(/^([A-G])b/, "$1♭").replace(/^([A-G])#/, "$1♯").replace(/b5$/, "♭5");
+// "Bbmin7b5" -> B♭min7♭5, "G7(b9,#11)/Bb" -> G7(♭9,♯11)/B♭, the signs in a span so CSS can tighten them
+const pretty = (s: string) => s.replace(/([A-G])b/g, "$1♭").replace(/b(\d)/g, "♭$1").replace(/#/g, "♯");
 function put(el: Element, txt: string) {
   el.textContent = "";
   for (const part of pretty(txt).split(/([♭♯])/)) {
@@ -25,7 +30,7 @@ function put(el: Element, txt: string) {
     else el.append(part);
   }
 }
-const label = (s: Segment) => s.q ? chordLabel(s, S.key) : "—";
+const label = (s: AdvSegment) => !s.q ? "—" : S.mode === "advanced" && s.full ? fullChordName(s.full, namesFor(S.key)) : chordLabel(s, S.key);
 const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 function setMsg(txt: string, err = false) { const m = $("msg"); m.textContent = txt; m.classList.toggle("err", err); }
 
@@ -45,9 +50,12 @@ async function load(blob: Blob, fileName: string) {
     const ac = new AudioContext();
     const buf = await ac.decodeAudioData(await blob.arrayBuffer());
     ac.close();
-    const x = new Float32Array(buf.length);
-    for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < x.length; i++) x[i] += d[i] / buf.numberOfChannels; }
-    const r = await analyse(x, buf.sampleRate);
+    // mono at the rate the analysis was tuned at (scripts/eval.ts): the FFT windows are fixed in samples, so a
+    // 44.1 / 48 kHz file would get windows half as long and smear the tensions
+    const off = new OfflineAudioContext(1, Math.ceil(buf.duration * ANALYSIS_SR), ANALYSIS_SR), src = off.createBufferSource();
+    src.buffer = buf; src.connect(off.destination); src.start();
+    const mono = await off.startRendering();
+    const r = await analyse(mono.getChannelData(0).slice(), ANALYSIS_SR);
     S.segs = r.segs; S.key = r.key; S.cur = -1;
     if (S.url) URL.revokeObjectURL(S.url);
     S.url = URL.createObjectURL(blob); audio.src = S.url;
@@ -55,6 +63,7 @@ async function load(blob: Blob, fileName: string) {
     $("key").textContent = `キー：${pretty(keyLabel(r.key))}（推定）`;
     renderList();
     $("player").hidden = false;
+    show(audio.currentTime);
     setMsg(`解析できました（${(r.ms / 1000).toFixed(1)} 秒）。再生するとコードが表示されます。`);
   } catch (err) {
     setMsg("この音声ファイルは読み込めませんでした。mp3・wav・m4a などをお試しください。（" + (err instanceof Error ? err.message : String(err)) + "）", true);
@@ -92,13 +101,25 @@ function show(t: number) {
     chips[i].classList.add("now");
     if (!audio.paused) chips[i].scrollIntoView({ block: "nearest", behavior: "smooth" });
     S.cur = i;
-    put($("now"), label(s));
+    const name = label(s);
+    put($("now"), name);
+    $("now").style.setProperty("--len", String(Math.max(5, name.length)));
     const n = nextChord(i);
     put($("next"), n >= 0 ? label(S.segs[n]) : "");
   }
   $("bar").style.width = (100 * Math.min(1, (t - s.t) / (s.end - s.t))) + "%";
 }
 (function tick() { show(audio.currentTime); requestAnimationFrame(tick); })();
+
+// 基本 / 応用: the same chords, named with or without tensions and slash basses
+function setMode(m: Mode) {
+  S.mode = m;
+  try { localStorage.setItem("mode", m); } catch { /* not remembered */ }
+  for (const b of document.querySelectorAll<HTMLButtonElement>("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === m));
+  if (S.segs.length) { renderList(); S.cur = -1; show(audio.currentTime); }
+}
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-mode]")) b.addEventListener("click", () => setMode(b.dataset.mode as Mode));
+setMode(S.mode);
 
 const fileInput = $<HTMLInputElement>("file");
 fileInput.addEventListener("change", () => { const f = fileInput.files?.[0]; if (f) load(f, f.name); fileInput.value = ""; });
