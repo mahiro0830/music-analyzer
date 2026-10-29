@@ -5,6 +5,7 @@ import type { AdvSegment } from "./advanced.ts";
 import { fullChordName } from "./theory.ts";
 import { basicFull } from "./advanced.ts";
 import { chordsToMidi } from "./midi.ts";
+import { encodeWav, isAiff, parseAiff } from "./audio.ts";
 import type { AnalysisReply, AnalysisRequest, AnalysisResult } from "./worker.ts";
 
 // elements of index.html, by id and type
@@ -49,8 +50,15 @@ async function load(blob: Blob, fileName: string) {
   setMsg(`「${fileName}」を解析しています…`);
   document.body.classList.add("busy");
   try {
-    const ac = new AudioContext();
-    const buf = await ac.decodeAudioData(await blob.arrayBuffer());
+    const bytes = await blob.arrayBuffer(), ac = new AudioContext();
+    let buf: AudioBuffer, play = blob;
+    if (isAiff(bytes)) {
+      // Chrome and Firefox can neither decode nor play AIFF: read it ourselves and play it as WAV
+      const a = parseAiff(bytes);
+      buf = ac.createBuffer(a.channels.length, a.channels[0].length, a.sampleRate);
+      a.channels.forEach((c, i) => buf.copyToChannel(c, i));
+      play = new Blob([encodeWav(a)], { type: "audio/wav" });
+    } else buf = await ac.decodeAudioData(bytes);
     ac.close();
     // mono at the rate the analysis was tuned at (scripts/eval.ts): the FFT windows are fixed in samples, so a
     // 44.1 / 48 kHz file would get windows half as long and smear the tensions
@@ -60,7 +68,7 @@ async function load(blob: Blob, fileName: string) {
     const r = await analyse(mono.getChannelData(0).slice(), ANALYSIS_SR);
     S.segs = r.segs; S.key = r.key; S.cur = -1;
     if (S.url) URL.revokeObjectURL(S.url);
-    S.url = URL.createObjectURL(blob); audio.src = S.url;
+    S.url = URL.createObjectURL(play); audio.src = S.url;
     $("title").textContent = fileName; S.name = fileName;
     $("key").textContent = `キー：${pretty(keyLabel(r.key))}（推定）`;
     renderList();
@@ -68,7 +76,7 @@ async function load(blob: Blob, fileName: string) {
     show(audio.currentTime);
     setMsg(`解析できました（${(r.ms / 1000).toFixed(1)} 秒）。再生するとコードが表示されます。`);
   } catch (err) {
-    setMsg("この音声ファイルは読み込めませんでした。mp3・wav・m4a などをお試しください。（" + (err instanceof Error ? err.message : String(err)) + "）", true);
+    setMsg("この音声ファイルは読み込めませんでした。mp3・wav・aif・m4a などをお試しください。（" + (err instanceof Error ? err.message : String(err)) + "）", true);
   } finally {
     S.busy = false; document.body.classList.remove("busy");
   }
